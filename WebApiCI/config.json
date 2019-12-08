@@ -1,0 +1,19 @@
+{
+  "UserName": "mengtoumingren@outlook.com",
+  "Password": "",
+  "RemoteUrl": "https://github.com/mengtoumingren/MyStoreApi.git",
+  "WorkDir": "D:\\VS\\WebApi1",
+  "ListenerPort": "2360",
+  "Cmds": [
+    {
+      "FileName": "dotnet",
+      "WorkSpace": "{WorkDir}\\Api\\WebApi",
+      "Command": "restore"
+    },
+    {
+      "FileName": "dotnet",
+      "WorkSpace": "{WorkDir}\\Api\\WebApi\\WebApi",
+      "Command": "run --urls http://[*]:2361"
+    }
+  ]
+}
