@@ -1,10 +1,15 @@
 {
   "UserName": "mengtoumingren@outlook.com",
-  "Password": "",
+  "Password": "Qq904622981",
   "RemoteUrl": "https://github.com/mengtoumingren/MyStoreApi.git",
-  "WorkDir": "D:\\VS\\WebApi1",
+  "WorkDir": "D:\\VSProject\\XP",
   "ListenerPort": "2360",
   "Cmds": [
+    {
+      "FileName": "cmd",
+      "WorkSpace": "",
+      "Command": "copy C:\\Users\\Administrator\\APP\\MyStore4Test\\appsettings.json C:\\Users\\Administrator\\APP\\CI\\Test\\Api\\WebApi\\WebApi\\\\appsettings2.json /y&exit"
+    },
     {
       "FileName": "dotnet",
       "WorkSpace": "{WorkDir}\\Api\\WebApi",

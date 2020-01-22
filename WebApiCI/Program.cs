@@ -12,13 +12,24 @@ using System.Net.Sockets;
 using System.Net;
 using Microsoft.Extensions.Configuration;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace WebApiCI
 {
     class Program
     {
+        [DllImport("kernel32.dll")]
+        static extern bool GenerateConsoleCtrlEvent(int dwCtrlEvent, int dwProcessGroupId);
+
+        [DllImport("kernel32.dll")]
+        static extern bool SetConsoleCtrlHandler(IntPtr handlerRoutine, bool add);
+
+        [DllImport("kernel32.dll")]
+        static extern bool AttachConsole(int dwProcessId);
+
         private static Process process;
         private static bool hasNew = false;
+
         static void Main(string[] args)
         {
             var builder = new ConfigurationBuilder();
@@ -53,42 +64,38 @@ namespace WebApiCI
                 while (true)
                 {
                     var client = listener.AcceptTcpClient();
+                    
+                    client.Close();
                     hasNew = true;
                     try
                     {
-                        client.Close();
+                        Console.WriteLine("close！");
+                        AttachConsole(process.Id);
+                        SetConsoleCtrlHandler(IntPtr.Zero, true);   //设置自己的ctrl+c处理，防止自己被终止
+                        GenerateConsoleCtrlEvent(0, 0); // 发送ctrl+c（注意：这是向所有共享该console的进程发送）
+                        Thread.Sleep(10);
+                        SetConsoleCtrlHandler(IntPtr.Zero, false);  //重置此参数
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        //
+                        //Console.WriteLine(ex.ToString());
                     }
                 }
             });
 
 
-            Task.Factory.StartNew(() =>
-            {
-                while(true)
-                {
-                    Thread.Sleep(1000);
-                    if (!hasNew) continue;
-                    
-                    hasNew = false;
-                    try
-                    {
-                        process.Kill();
-                    }
-                    catch (Exception)
-                    {
-                        //
-                    }
-                }
-            });
+          
 
 
             while (true)
             {
+                while (!hasNew)
+                {
+                    Thread.Sleep(1000);
+                }
+                hasNew = false;
                 Console.WriteLine("有新更新！");
+
                 if (!Directory.Exists(workpath) || Directory.GetFiles(workpath).Length == 0)
                 {
                     Repository.Clone(myConfig.RemoteUrl, workpath, new CloneOptions
@@ -136,20 +143,40 @@ namespace WebApiCI
         private static void Excute(string fileName, string arguments,string workdir ,out Process proc)
         {
             //创建一个ProcessStartInfo对象 使用系统shell 指定命令和参数 设置标准输出
-            var psi = new ProcessStartInfo(fileName, arguments) { RedirectStandardOutput = true };
-            psi.UseShellExecute = string.IsNullOrEmpty(workdir);
+            var startInfo = new ProcessStartInfo(fileName) { RedirectStandardOutput = true,UseShellExecute = false };
             if(!string.IsNullOrEmpty(workdir))
             {
-                psi.WorkingDirectory = workdir;
+                startInfo.WorkingDirectory = workdir;
             }
+
+            if (!fileName.Equals("cmd"))
+            {
+                startInfo.Arguments = arguments;
+            }
+            else
+            {
+                startInfo.RedirectStandardInput = true;   //接受来自调用程序的输入信息
+            }
+
+
             //启动
-            proc = Process.Start(psi);
+            proc = Process.Start(startInfo);
+
+            //proc.OutputDataReceived += Proc_OutputDataReceived;
+
             if (proc == null)
             {
                 Console.WriteLine("Can not exec.");
             }
             else
             {
+                //向cmd窗口写入命令
+                if (fileName.Equals("cmd"))
+                {
+                    proc.StandardInput.WriteLine(arguments);
+                    proc.StandardInput.AutoFlush = true;
+                }
+
                 Console.WriteLine("-------------Start read standard output--------------");
                 //开始读取
                 using (var sr = proc.StandardOutput)
@@ -161,12 +188,18 @@ namespace WebApiCI
 
                     if (!proc.HasExited)
                     {
+                        Console.WriteLine("---------------Kill------------------");
                         proc.Kill();
                     }
                 }
                 Console.WriteLine("---------------Read end------------------");
-                
+
             }
+        }
+
+        private static void Proc_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            Console.WriteLine(e.Data);
         }
     }
 }
